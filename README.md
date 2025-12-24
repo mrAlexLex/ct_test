@@ -1,130 +1,163 @@
-# Todo Application
-
 ## Установка
 
-### Быстрый старт
+```bash
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+```
+
+## Конфигурация
+
+Добавьте в `.env`:
+
+```env
+# Card payments
+PAYMENT_CARD_API_URL=https://api.cardprovider.com/charge
+PAYMENT_CARD_API_KEY=your_api_key
+
+# Crypto payments
+PAYMENT_CRYPTO_API_URL=https://api.cryptoprovider.com/payment
+PAYMENT_CRYPTO_CONFIRMATIONS=3
+```
+
+## API
+
+### Создать платёж
+
+```http
+POST /api/payments
+Content-Type: application/json
+
+{
+    "user_id": 1,
+    "amount": 99.99,
+    "method": "card",
+    "currency": "USD",
+    "metadata": {}
+}
+```
+
+**Ответ:**
+
+```json
+{
+    "success": true,
+    "status": "success",
+    "transaction_id": "card_abc123",
+    "message": "Card payment processed successfully",
+    "metadata": {}
+}
+```
+
+### Получить доступные методы оплаты
+
+```http
+GET /api/payments/methods
+```
+
+**Ответ:**
+
+```json
+{
+    "data": [
+        { "name": "card" },
+        { "name": "crypto" }
+    ]
+}
+```
+
+## Архитектура
+
+```
+app/
+├── Contracts/
+│   └── PaymentGatewayInterface.php
+├── DTO/
+│   ├── PaymentData.php
+│   └── PaymentResult.php
+├── Gateways/
+│   ├── AbstractPaymentGateway.php
+│   ├── CardPaymentGateway.php
+│   ├── CryptoPaymentGateway.php
+│   └── PaymentGatewayFactory.php
+├── Http/
+│   ├── Controllers/PaymentController.php
+│   ├── Requests/PaymentRequest.php
+│   └── Resources/
+├── Models/Payment/Payment/
+│   ├── Enums/PaymentStatusEnum.php
+│   ├── Payment.php
+│   ├── PaymentConstants.php
+│   └── PaymentScopes.php
+├── Rules/
+│   └── SupportedPaymentMethodRule.php
+└── Services/
+    └── PaymentService.php
+```
+
+## Добавление нового метода оплаты
+
+### 1. Создать Gateway
+
+```php
+// app/Gateways/PayPalPaymentGateway.php
+
+namespace App\Gateways;
+
+use App\DTO\PaymentData;
+use App\DTO\PaymentResult;
+
+class PayPalPaymentGateway extends AbstractPaymentGateway
+{
+    protected string $method = 'paypal';
+
+    public function __construct(
+        private string $clientId,
+        private string $secret,
+    ) {}
+
+    public function process(PaymentData $data): PaymentResult
+    {
+        // Реализация
+    }
+}
+```
+
+### 2. Зарегистрировать в AppServiceProvider
+
+```php
+// app/Providers/AppServiceProvider.php
+
+$this->app->singleton(PayPalPaymentGateway::class, function () {
+    return new PayPalPaymentGateway(
+        clientId: config('services.payments.paypal.client_id'),
+        secret: config('services.payments.paypal.secret'),
+    );
+});
+
+$this->app->tag([
+    CardPaymentGateway::class,
+    CryptoPaymentGateway::class,
+    PayPalPaymentGateway::class, // Добавить
+], 'payment.gateways');
+```
+
+### 3. Добавить конфигурацию
+
+```php
+// config/services.php
+
+'payments' => [
+    'paypal' => [
+        'client_id' => env('PAYPAL_CLIENT_ID'),
+        'secret' => env('PAYPAL_SECRET'),
+    ],
+],
+```
+
+## Docker
 
 ```bash
-# Клонируйте репозиторий
-git clone <repository-url>
-cd todo.test
-
-make setup
+docker-compose up -d
 ```
-
-Этот команда выполнит:
-- Сборку Docker контейнеров
-- Установку зависимостей backend и frontend
-- Публикацию конфигураций Laravel пакетов
-- Запуск миграций базы данных
-
-### Ручная установка
-
-Если у вас нет Make, выполните команды вручную:
-
-```bash
-# 1. Соберите контейнеры
-docker-compose up -d --build
-
-# 2. Установите зависимости backend
-docker-compose exec -w /var/www/backend app composer install
-docker-compose exec -w /var/www/backend app php artisan key:generate
-
-# 3. Установите зависимости frontend
-docker-compose exec -w /var/www/frontend app npm install
-
-# 4. Публикация конфигураций
-docker-compose exec -w /var/www/backend app php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"
-docker-compose exec -w /var/www/backend app php artisan vendor:publish --provider="Spatie\MediaLibrary\MediaLibraryServiceProvider" --tag="medialibrary-migrations"
-
-# 5. Запустите миграции
-docker-compose exec -w /var/www/backend app php artisan migrate
-
-```
-
-## Использование
-
-### Доступные команды Make
-
-#### Docker команды
-```bash
-make build      # Собрать контейнеры
-make up         # Запустить контейнеры
-make down       # Остановить контейнеры
-make restart    # Перезапустить контейнеры
-make logs       # Просмотр логов
-make shell      # Доступ к shell PHP контейнера
-```
-
-#### Backend команды
-```bash
-make install           # Установить зависимости backend
-make migrate           # Запустить миграции
-make queue             # Запустить worker очереди
-make clear             # Очистить все кэши
-```
-
-#### Frontend команды
-```bash
-make install-frontend  # Установить зависимости frontend
-make dev-frontend      # Запустить dev-сервер frontend
-make build-frontend    # Собрать frontend для production
-```
-
-### Доступ к приложению
-
-После запуска контейнеров:
-
-- **Backend API**: http://localhost:8080
-- **Frontend Dev Server**: Запустите `make dev-frontend` (обычно на порту 5173)
-- **PostgreSQL**: localhost:5432
-- **Redis**: localhost:6379
-
-## Структура проекта
-
-```
-todo.test/
-├── backend/           # Laravel приложение
-│   ├── app/          # Код приложения
-│   ├── config/       # Конфигурации
-│   ├── database/     # Миграции и сидеры
-│   ├── routes/       # Маршруты API
-│   └── tests/        # Тесты
-├── frontend/         # Vue.js приложение
-│   ├── src/         # Исходный код
-│   │   ├── api/     # API клиент
-│   │   ├── components/  # Vue компоненты
-│   │   ├── stores/  # Pinia stores
-│   │   └── views/   # Страницы
-│   └── public/      # Статические файлы
-├── docker/          # Docker конфигурации
-│   ├── app/        # PHP Dockerfile и конфиги
-│   └── nginx/      # Nginx конфигурация
-├── redis/          # Redis конфигурация
-├── docker-compose.yml  # Docker Compose конфигурация
-└── Makefile        # Команды для управления проектом
-```
-
-## API Endpoints
-
-### Аутентификация
-- `POST /api/register` - Регистрация пользователя
-- `POST /api/login` - Вход в систему
-- `POST /api/logout` - Выход (требует аутентификации)
-
-### Задачи
-- `GET /api/tasks` - Получить список задач
-- `POST /api/tasks` - Создать задачу
-- `GET /api/tasks/{id}` - Получить задачу
-- `PUT /api/tasks/{id}` - Обновить задачу
-- `DELETE /api/tasks/{id}` - Удалить задачу
-- `PATCH /api/tasks/{id}/toggle` - Переключить статус выполнения
-
-## Переменные окружения
-
-Основные переменные окружения настраиваются в `docker-compose.yml`:
-
-- `POSTGRES_DB`: todo_test_db
-- `POSTGRES_USER`: postgres
-- `POSTGRES_PASSWORD`: 174471
-
