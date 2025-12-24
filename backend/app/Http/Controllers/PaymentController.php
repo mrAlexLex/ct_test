@@ -2,14 +2,29 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\PaymentRequest;
+use App\Http\Resources\PaymentMethodResource;
+use App\Http\Resources\PaymentResultResource;
 use App\Services\PaymentService;
-use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class PaymentController extends Controller
 {
-    public function pay(Request $request)
+    public function __construct(
+        private PaymentService $paymentService
+    )
     {
-        $service = new PaymentService();
-        $service->handle($request->input('uid'), $request->input('sum'), $request->input('method'));
+    }
+
+    public function pay(PaymentRequest $request): PaymentResultResource
+    {
+        $result = $this->paymentService->process($request->getPaymentData());
+
+        return new PaymentResultResource($result);
+    }
+
+    public function methods(): AnonymousResourceCollection
+    {
+        return PaymentMethodResource::collection($this->paymentService->availableMethods());
     }
 }

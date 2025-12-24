@@ -2,31 +2,39 @@
 
 namespace App\Services;
 
-use App\Models\PaymentModel;
+use App\DTO\PaymentData;
+use App\DTO\PaymentResult;
+use App\Gateways\PaymentGatewayFactory;
+use Illuminate\Support\Facades\Log;
 
 class PaymentService
 {
-    public function handle($uid, $sum, $method)
+    public function __construct(
+        private PaymentGatewayFactory $gatewayFactory
+    )
     {
-        $logger = app()->make('logger');
-        $processor = PaymentProcessor::getInstance($uid);
-        $processor->user_id = $uid;
+    }
 
-        $logger::info("Processing $method payment for $uid");
+    public function process(PaymentData $paymentData): PaymentResult
+    {
+        Log::info('Processing payment', [
+            'user_id' => $paymentData->userId,
+            'amount' => $paymentData->amount,
+            'method' => $paymentData->method,
+        ]);
 
-        $payment = new PaymentModel();
-        $payment->user_id = $uid;
-        $payment->amount = $sum;
-        $payment->method = $method;
-        $payment->created_at = date('Y-m-d H:i:s');
+        $gateway = $this->gatewayFactory->make($paymentData->method);
 
-        if ($method === 'card') {
-            $processor->processCard($payment);
-        } elseif ($method === 'crypto') {
-            $processor->processCrypto($payment);
-        } else {
-            $logger::info("Unknown payment method: $method");
-            echo 'Unknown method';
-        }
+        return $gateway->process($paymentData);
+    }
+
+    public function availableMethods(): array
+    {
+        return $this->gatewayFactory->availableMethods();
+    }
+
+    public function supportsMethod(string $method): bool
+    {
+        return $this->gatewayFactory->supports($method);
     }
 }

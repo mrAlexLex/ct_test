@@ -35,4 +35,28 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Payment Services Configuration
+    |--------------------------------------------------------------------------
+    */
+
+    'payments' => [
+        'card' => [
+            'url' => env('PAYMENT_CARD_API_URL', 'https://api.cardprovider.com/charge'),
+            'key' => env('PAYMENT_CARD_API_KEY'),
+        ],
+
+        'crypto' => [
+            'url' => env('PAYMENT_CRYPTO_API_URL', 'https://api.cryptoprovider.com/payment'),
+            'confirmations' => env('PAYMENT_CRYPTO_CONFIRMATIONS', 3),
+        ],
+
+        // Add new payment methods configuration here
+        // 'paypal' => [
+        //     'client_id' => env('PAYPAL_CLIENT_ID'),
+        //     'secret' => env('PAYPAL_SECRET'),
+        //     'sandbox' => env('PAYPAL_SANDBOX', true),
+        // ],
+    ],
 ];
