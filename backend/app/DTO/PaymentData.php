@@ -3,6 +3,7 @@
 namespace App\DTO;
 
 use app\Models\Payment\Payment\Payment;
+use Illuminate\Support\Arr;
 
 class PaymentData
 {
@@ -19,11 +20,11 @@ class PaymentData
     public static function fromArray(array $data): self
     {
         return new self(
-            userId: (int)$data['user_id'],
-            amount: (float)$data['amount'],
-            method: $data['method'],
-            currency: $data['currency'] ?? Payment::DEFAULT_CURRENCY,
-            metadata: $data['metadata'] ?? [],
+            userId: (int)Arr::get($data, 'user_id'),
+            amount: (float)Arr::get($data, 'amount'),
+            method: Arr::get($data, 'method'),
+            currency: Arr::get($data, 'currency') ?? Payment::DEFAULT_CURRENCY,
+            metadata: Arr::get($data, 'metadata') ?? [],
         );
     }
 

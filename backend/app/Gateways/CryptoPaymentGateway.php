@@ -36,7 +36,7 @@ class CryptoPaymentGateway extends AbstractPaymentGateway
                 'confirmations' => $this->requiredConfirmations,
             ]);
 
-            if ($response['success']) {
+            if (Arr::get($response, 'success')) {
                 $walletAddress = Arr::get($response, 'body.wallet_address');
                 $paymentId = Arr::get($response, 'body.payment_id') ?? uniqid('crypto_');
 
